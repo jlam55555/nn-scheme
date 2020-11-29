@@ -1,6 +1,4 @@
-; each layer is a list of three elements: train method, inference method, and weights
-; train method takes the current input and the rest of the neural net, and returns gradients
-; infer method performs calculation and returns result
+(define-record-type layer (fields train infer weights))
 
 ; technically this doesn't have to be a function, since there are no weights/state;
 ; use function just to be consistent with other layer types (e.g., dense), which do store state
@@ -11,7 +9,7 @@
 
   (define (train x y lr nn)
     (let* (
-      [next-layer-results ((car (car nn)) (infer x) y lr (cdr nn))]
+      [next-layer-results ((layer-train (car nn)) (infer x) y lr (cdr nn))]
       [next-layer-grads (car next-layer-results)]
       [next-layers (cadr next-layer-results)]
       [loss (caddr next-layer-results)]
@@ -26,14 +24,14 @@
     )
   )
   (define (infer x) (map sigmoid x))
-  (list train infer '())
+  (make-layer train infer '())
 )
 
 ; dense layer stores weights, needs to be a function
 (define (dense-layer nodes-weights)
   (define (train x y lr nn)
     (let* (
-      [next-layer-results ((car (car nn)) (infer x) y lr (cdr nn))]
+      [next-layer-results ((layer-train (car nn)) (infer x) y lr (cdr nn))]
       [next-layer-grads (car next-layer-results)]
       [next-layers (cadr next-layer-results)]
       [loss (caddr next-layer-results)]
@@ -78,7 +76,7 @@
     )
   )
 
-  (list train infer nodes-weights)
+  (make-layer train infer nodes-weights)
 )
 
 ; "loss layer" handles loss during training and passes inputs through
@@ -95,34 +93,38 @@
     )
   )
   (define (infer x) x)
-  (list train infer '())
+  (make-layer train infer '())
 )
 
 ; training procedure; uses a batch-size of 1 because I am too lazy to implement
 ; the backprop generally enough to include matrix ops;
 ; x and y are matrices (lists of lists) of the training data
-(define (train model lr epochs x y)
-  (let epoch-loop ([i 1] [model model])
+
+; TODO:
+; quiet is optional parameter to display loss
+(define (model-train model lr epochs x y)
+  (let epoch-loop ([i 1] [layers (model-layers model)])
     (if (> i epochs)
-      model
+      (make-model layers (model-shape model))
       [begin
-        (display (format "Epoch ~a/~a\n" i epochs))
+        ; TODO: if not quiet
+        ; (display (format "Epoch ~a/~a\n" i epochs))
         (let sub-epoch-loop (
           [x x]
           [y y]
-          [model model]
+          [layers layers]
         )
           (if (null? x)
-            (epoch-loop (1+ i) model)
+            (epoch-loop (1+ i) layers)
             (let* (
-              [train-method (car (car model))]
-              [next-layer (cdr model)]
-              [model-train-results (train-method (car x) (car y) lr next-layer)]
-              [updated-model (cadr model-train-results)]
-              [loss (caddr model-train-results)]
+              [layers-train-results
+                ((layer-train (car layers)) (car x) (car y) lr (cdr layers))]
+              [updated-layers (cadr layers-train-results)]
+              [loss (caddr layers-train-results)]
             )
-              (display (format "Loss: ~a\n" loss))
-              (sub-epoch-loop (cdr x) (cdr y) updated-model)
+              ; TODO: if not quiet
+              ; (display (format "Loss: ~a\n" loss))
+              (sub-epoch-loop (cdr x) (cdr y) updated-layers)
             )
           )
         )
@@ -134,9 +136,9 @@
 ; apply model on single sample
 (define (predict model x)
   (fold-left
-    (lambda (accumulator infer-method) (infer-method accumulator))
+    (lambda (acc infer) (infer acc))
     x
-    (map cadr model)
+    (map layer-infer (model-layers model))
   )
 )
 
@@ -153,24 +155,7 @@
   (map (lambda (sample) (binary-predict model sample)) x)
 )
 
-; build model; takes in a model built in reverse order, since building in
-; reverse is easier to do with one-sided lls; also appends loss layer
-; TODO: remove; this is obsoleted by read-fc-netdesc
-(define (build-model layers)
-  (reverse (cons (loss-layer) layers))
-)
-
-; toy example for a single dense perceptron: try to learn z=2x+3y-5
-; single perceptron with two inputs, one output
-#|
-(define model (build-model (list
-  (dense-layer '((3 -1 2)))
-)))
-(define x '((1 5) (2 4) (-2 7) (3 6) (4 2) (-2 3)))
-(define y '((12) (11) (12) (19) (9) (0)))
-(define m (train model 0.05 1000 x y))
-|#
-
+(define-record-type model (fields layers shape))
 
 ; build fc network using network description as described
 ; layer count includes input "layer"
@@ -193,7 +178,10 @@
     ; create a fc + sigmoid layer for every layer (except input "layer")
     (let layer-loop ([layers '()] [i 0])
       (if (= i (1- layer-count))
-        (reverse (cons (loss-layer) layers))
+        (make-model
+          (reverse (cons (loss-layer) layers))
+          layer-node-counts
+        )
         (let node-loop ([nodes '()] [j (list-ref layer-node-counts (1+ i))])
           (if (zero? j)
             (layer-loop
@@ -257,23 +245,67 @@
   )
 )
 
-; export model
-; TODO: working here
-
 ; run wdbc example
 (define model (load-model "wdbc.init" 3))
 (define dataset (load-dataset "wdbc.train"))
 (define x (car dataset))
 (define y (cdr dataset))
-(define trained-model (train model 0.1 100 x y))
+(define trained-model (model-train model 0.1 100 x y))
 
-; for displaying layer weights (for dense layer)
-(define (lw layer)
-  (map
-    (lambda (x) (map (lambda (x) (/ (round (* x 1000)) 1000)) x))
-    (caddr layer)
+; for displaying layer weights (for dense layer) to three decimal places
+(define (string-trim-front str)
+  (let loop ([str (string->list str)])
+    (if (or (null? str) (not (char-whitespace? (car str))))
+      (list->string str)
+      (loop (cdr str))
+    )
+  )
+)
+(define (string-join delim lst)
+  (fold-left
+    (lambda (acc str) (string-append acc delim str))
+    (car lst) (cdr lst)
+  )
+)
+(define (print-layer-weights layer)
+  (string-join "\n"
+    (map
+      (lambda (x)
+        (string-join " "
+          (map (lambda (x) (string-trim-front (format "~6,3f" x))) x)
+        )
+      )
+      (layer-weights layer)
+    )
   )
 )
 
-(display (lw (car trained-model)))
-(display (lw (caddr trained-model)))
+; export model to file; note that this makes strict assumptions on the
+; network architecture (i.e., FC net with dense first layer)
+(define (export-model model filename)
+  ; open-output-file throws an error if file exists, so allow overwrite
+  ; by deleting an existing file (be careful!)
+  (when (file-exists? filename)
+    (delete-file filename))
+  (let ([port (open-output-file filename)])
+    ; export model shape
+    (display
+      (format "~a\n"
+        (string-join " " (map number->string (model-shape model)))
+      )
+      port
+    )
+    ; export layer weights
+    (for-each
+      (lambda (layer)
+        (unless (null? (layer-weights layer))
+          (display (format "~a\n" (print-layer-weights layer)) port)
+        )
+      )
+      (model-layers model)
+    )
+    ; cleanup; need this to flush output
+    (close-output-port port)
+  )
+  (void)
+)
