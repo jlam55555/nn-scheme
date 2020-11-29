@@ -116,6 +116,7 @@
 
 ; export model to file; note that this makes strict assumptions on the
 ; network architecture (i.e., FC net with dense first layer)
+; TODO: rename to model-export and model-load...?
 (define (export-model model filename)
   ; open-output-file throws an error if file exists, so allow overwrite
   ; by deleting an existing file (be careful!)

@@ -1,5 +1,4 @@
 ; model training and inference procedures
-(load "arch-defs.ss")
 
 ; training procedure; note that this only trains on single samples
 ; (as if batch size = 1)
