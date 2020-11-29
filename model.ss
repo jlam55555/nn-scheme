@@ -50,10 +50,10 @@
 
 ; binary-output versions of the above
 (define (model-binary-predict model x)
-  (map (lambda (x) (inexact->exact (round x))) (predict model x))
+  (map (lambda (x) (inexact->exact (round x))) (model-predict model x))
 )
 (define (model-binary-predict-set model x)
-  (map (lambda (sample) (binary-predict model sample)) x)
+  (map (lambda (sample) (model-binary-predict model sample)) x)
 )
 
 ; generate overall accuracy, precision, recall, f1 given contingency table
@@ -119,14 +119,25 @@
       )
     ]
     ; macro averaging averages the counts, weights each class equally
+    ; f1 is calculated using the averaged values
     [macro-averaged-stats
-      (map
-        (lambda (stat) (/ stat (length class-stats)))
-        (fold-left
-          (lambda (acc class-stats) (map + acc class-stats))
-          '(0 0 0 0)
-          class-stats
-        )
+      (let* (
+        [averaged-stats
+          (map
+            (lambda (stat) (/ stat (length class-stats)))
+            (fold-left
+              (lambda (acc class-stats) (map + acc class-stats))
+              '(0 0 0 0)
+              class-stats
+            )
+          )
+        ]
+        [overall (car averaged-stats)]
+        [precision (cadr averaged-stats)]
+        [recall (caddr averaged-stats)]
+        [f1 (/ (* 2 precision recall) (+ precision recall))]
+      )
+        (list overall precision recall f1)
       )
     ]
   )

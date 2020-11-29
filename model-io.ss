@@ -114,14 +114,16 @@
   )
 )
 
-; export model to file; note that this makes strict assumptions on the
+; export model weights to file; note that this makes strict assumptions on the
 ; network architecture (i.e., FC net with dense first layer)
 ; TODO: rename to model-export and model-load...?
-(define (export-model model filename)
+; TODO: if no filename, then print to stdout?
+(define (export-model-weights model filename)
   ; open-output-file throws an error if file exists, so allow overwrite
   ; by deleting an existing file (be careful!)
   (when (file-exists? filename)
-    (delete-file filename))
+    (delete-file filename)
+  )
   (let ([port (open-output-file filename)])
     ; export model shape
     (display
@@ -142,5 +144,55 @@
     ; cleanup; need this to flush output
     (close-output-port port)
   )
-  (void)
+)
+
+; round everything to three decimal places and always have at least
+; one digit to the left of the decimal place;
+; takes either a list or an atom and applies itself recursively
+(define (round-generic places val)
+  (if (atom? val)
+    (if (zero? places)
+      (format "~d" val)
+      (string-trim-front
+        (format (format "~a~a,~af" #\~ (+ 3 places) places) val)
+      )
+    )
+    (map (lambda (val) (round-generic places val)) val)
+  )
+)
+
+; export model stats to file
+(define (export-model-stats model x y filename)
+  (when (file-exists? filename)
+    (delete-file filename)
+  )
+  (let* (
+    [port (open-output-file filename)]
+    [eval-results (model-evaluate model x y)]
+    [contingency-tables (car eval-results)]
+    [class-stats (cadr eval-results)]
+    [micro-averaged-stats (caddr eval-results)]
+    [macro-averaged-stats (cadddr eval-results)]
+  )
+    (display
+      (format "~a\n~a\n~a\n"
+        ; class details
+        (string-join "\n"
+          (map
+            (lambda (class) (string-join " " class))
+            (map append
+              (round-generic 0 contingency-tables)
+              (round-generic 3 class-stats)
+            )
+          )
+        )
+        ; micro-averaged stats
+        (string-join " " (round-generic 3 micro-averaged-stats))
+        ; macro-averaged stats
+        (string-join " " (round-generic 3 macro-averaged-stats))
+      )
+      port
+    )
+    (close-output-port port)
+  )
 )
