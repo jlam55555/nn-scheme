@@ -26,7 +26,7 @@
     )
   )
   (define (infer x) (map sigmoid x))
-  (cons train infer)
+  (list train infer '())
 )
 
 ; dense layer stores weights, needs to be a function
@@ -77,7 +77,8 @@
       )
     )
   )
-  (cons train infer)
+
+  (list train infer nodes-weights)
 )
 
 ; "loss layer" handles loss during training and passes inputs through
@@ -94,7 +95,7 @@
     )
   )
   (define (infer x) x)
-  (cons train infer)
+  (list train infer '())
 )
 
 ; training procedure; uses a batch-size of 1 because I am too lazy to implement
@@ -135,27 +136,144 @@
   (fold-left
     (lambda (accumulator infer-method) (infer-method accumulator))
     x
-    (map
-      (lambda (layer) (cdr layer))
-      model
-    )
+    (map cadr model)
   )
 )
 
-; apply model on list of samples
+; apply model on a list of examples
+(define (predict-set model x)
+  (map (lambda (sample) (predict model sample)) x)
+)
 
+; binary-output versions of the above
+(define (binary-predict model x)
+  (map round (predict model x))
+)
+(define (binary-predict-set model x)
+  (map (lambda (sample) (binary-predict model sample)) x)
+)
 
 ; build model; takes in a model built in reverse order, since building in
 ; reverse is easier to do with one-sided lls; also appends loss layer
+; TODO: remove; this is obsoleted by read-fc-netdesc
 (define (build-model layers)
   (reverse (cons (loss-layer) layers))
 )
 
-; toy example: try to learn z=2x+3y-5
+; toy example for a single dense perceptron: try to learn z=2x+3y-5
 ; single perceptron with two inputs, one output
+#|
 (define model (build-model (list
   (dense-layer '((3 -1 2)))
 )))
 (define x '((1 5) (2 4) (-2 7) (3 6) (4 2) (-2 3)))
 (define y '((12) (11) (12) (19) (9) (0)))
 (define m (train model 0.05 1000 x y))
+|#
+
+
+; build fc network using network description as described
+; layer count includes input "layer"
+; extra parameter layer-count because Sable's network description assumes
+; 3 layers, but this can be more general
+(define (load-model filename layer-count)
+  (let* (
+    [port (open-input-file filename)]
+
+    ; read in node counts for each layer
+    [layer-node-counts
+      (let node-counts-loop ([layer-node-counts '()] [i layer-count])
+        (if (zero? i)
+          (reverse layer-node-counts)
+          (node-counts-loop (cons (read port) layer-node-counts) (1- i))
+        )
+      )
+    ]
+  )
+    ; create a fc + sigmoid layer for every layer (except input "layer")
+    (let layer-loop ([layers '()] [i 0])
+      (if (= i (1- layer-count))
+        (reverse (cons (loss-layer) layers))
+        (let node-loop ([nodes '()] [j (list-ref layer-node-counts (1+ i))])
+          (if (zero? j)
+            (layer-loop
+              (cons (sigmoid-layer) (cons (dense-layer (reverse nodes)) layers))
+              (1+ i)
+            )
+            (let weight-loop ([weights '()] [k (1+ (list-ref layer-node-counts i))])
+              (if (zero? k)
+                (node-loop (cons (reverse weights) nodes) (1- j))
+                (weight-loop (cons (read port) weights) (1- k))
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+)
+
+; load in dataset
+; TODO: add notes on dataset format
+(define (load-dataset filename)
+  (let* (
+    [port (open-input-file filename)]
+    [N (read port)]
+    [input-dim (read port)]
+    [output-dim (read port)]
+  )
+    (let sample-loop (
+      [i N]
+      [x '()]
+      [y '()]
+    )
+      (if (zero? i)
+        ; reversing doesn't matter too much because training is usually
+        ; stochastic, but for the sake of this assignment try to make
+        ; reproducible so it matches sable's results
+        (cons (reverse x) (reverse y))
+        (let* (
+          [sample-x
+            (let feature-loop ([j input-dim] [sample-x '()])
+              (if (zero? j)
+                (reverse sample-x)
+                (feature-loop (1- j) (cons (read port) sample-x))
+              )
+            )
+          ]
+          [sample-y
+            (let output-loop ([j output-dim] [sample-y '()])
+              (if (zero? j)
+                (reverse sample-y)
+                (output-loop (1- j) (cons (read port) sample-y))
+              )
+            )
+          ]
+        )
+          (sample-loop (1- i) (cons sample-x x) (cons sample-y y))
+        )
+      )
+    )
+  )
+)
+
+; export model
+; TODO: working here
+
+; run wdbc example
+(define model (load-model "wdbc.init" 3))
+(define dataset (load-dataset "wdbc.train"))
+(define x (car dataset))
+(define y (cdr dataset))
+(define trained-model (train model 0.1 100 x y))
+
+; for displaying layer weights (for dense layer)
+(define (lw layer)
+  (map
+    (lambda (x) (map (lambda (x) (/ (round (* x 1000)) 1000)) x))
+    (caddr layer)
+  )
+)
+
+(display (lw (car trained-model)))
+(display (lw (caddr trained-model)))
