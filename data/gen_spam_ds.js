@@ -1,25 +1,40 @@
 const fs = require('fs');
 const http = require('http');
 
+// dataset parameters; dataset file assumes all numeric inputs with no missing values,
+// in which each line is a single sample with all features followed by all outputs, delimited by commas
+// (standard CSV format with no header row)
+const dataset_file = 'http://archive.ics.uci.edu/ml/machine-learning-databases/spambase/spambase.data';
+const dataset_name = 'spam';
+
+// network parameters
+const hidden_nodes = 64;
+const output_nodes = 1;
+
 const parse_dataset = dataset_string => {
 	// put into 2d array
 	const data = dataset_string.split('\n').map(row => row.split(',').map(str => parseFloat(str)));
+
+	// may need to remove last row (is a problem in spam dataset)
+	if (data[data.length-1].length != data[0].length) {
+		data.splice(data.length-1);
+	}
 
 	// shuffle dataset using fisher-yates
 	const N = data.length;
 	for (let i = 0; i < N; ++i) {
 		const idx = i+Math.floor((N-i)*Math.random());
-		const tmp = [...data[idx]]
-		data[idx] = [...data[i]]
+		const tmp = [...data[idx]];
+		data[idx] = [...data[i]];
 		data[i] = tmp;
 	}
 
 	// separate features and labels
-	const X = data.map(row => row.slice(0, -1));
-	const Y = data.map(row => row[row.length-1]);
+	const X = data.map(row => row.slice(0, -output_nodes));
+	const Y = data.map(row => row.slice(-output_nodes));
 
 	// minmaxscalar
-	const col_maxes = X.reduce((acc, row) => acc.map((val, i) => Math.max(val, row[i])));
+	const col_maxes = X.reduce((acc, row, idx) => acc.map((val, i) => Math.max(val, row[i])));
 	const X_scaled = X.map(row => row.map((val, i) => val / col_maxes[i]));
 
 	// split into train and test datasets
@@ -28,17 +43,20 @@ const parse_dataset = dataset_string => {
 	const Y_train = Y.slice(0, split);
 	const X_test = X_scaled.slice(split);
 	const Y_test = Y.slice(split);
-	const train_dataset = X_train.map((row, i) => row.concat([Y_train[i]]));
-	const test_dataset = X_test.map((row, i) => row.concat([Y_test[i]]));
+	const train_dataset = X_train.map((row, i) => row.concat(Y_train[i]));
+	const test_dataset = X_test.map((row, i) => row.concat(Y_test[i]));
 
-	// number of samples and features
+	// N = number of samples
+	// F = number of features
+	// O = number of outputs (output nodes)
+	// H = number of hidden nodes
 	const N_train = split;
 	const N_test = N-split;
 	const F = X[0].length;
-	const O = 1;		// 1 (binary) output
+	const O = output_nodes;	// global var
+	const H = hidden_nodes;	// global var
 
 	// export datasets
-	const dataset_name = 'spam';
 	const train_outfile = `${dataset_name}.train`;
 	const test_outfile = `${dataset_name}.test`;
 
@@ -61,7 +79,6 @@ const parse_dataset = dataset_string => {
 	}
 
 	// generate random network description
-	const H = 64;
 	const first_layer_weights = [...Array(H)].map(_ => [...Array(F+1)].map(_ => randn_bm()));
 	const second_layer_weights = [...Array(O)].map(_ => [...Array(H+1)].map(_ => randn_bm()));
 
@@ -75,11 +92,11 @@ const parse_dataset = dataset_string => {
 };
 
 // initiate get and parse dataset
-http.get('http://archive.ics.uci.edu/ml/machine-learning-databases/spambase/spambase.data', res => {
+http.get(dataset_file, res => {
 	res.statusCode !== 200 && console.error(error);
 
 	let res_body = '';
 	res.on('data', chunk => res_body += chunk);
 	res.on('end', () => parse_dataset(res_body));
 
-});
+}).on('error', console.error);
