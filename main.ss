@@ -6,22 +6,13 @@ An alternative entry point is autorun.ss, which simply loads this file and
 calls (prompt-train-test-model) (and thus can be run from the command line).
 |#
 
+(load "util.ss")
 (load "arch-defs.ss")
 (load "model.ss")
 (load "sigmoid-layer.ss")
 (load "dense-layer.ss")
 (load "loss-layer.ss")
 (load "model-io.ss")
-
-; helper function parse input as given type
-(define (read-as-type port type)
-  (let ([input-symbol (read port)])
-    (case type
-      ['string (symbol->string input-symbol)]
-      [else input-symbol]
-    )
-  )
-)
 
 ; prompt-driven model training, returns trained model
 (define (prompt-train-model)
@@ -57,7 +48,6 @@ calls (prompt-train-test-model) (and thus can be run from the command line).
 )
 
 ; prompt-driven model stats (given some trained model)
-; TODO: turn dataset into a record type
 (define (prompt-test-model model)
   (let* (
     [port (current-input-port)]
@@ -75,7 +65,7 @@ calls (prompt-train-test-model) (and thus can be run from the command line).
   )
 )
 
-; a combination of the two
+; a combination of the two above functions, for ultimate convenience
 (define (prompt-train-test-model)
   (prompt-test-model (prompt-train-model))
 )

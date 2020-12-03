@@ -59,7 +59,7 @@ report. Here are the file types and associated methods
   )
 )
 
-; load in dataset
+; load in dataset; dataset is simply a pair of the x and y matrices
 (define (load-dataset filename)
   (let* (
     [port (open-input-file filename)]
@@ -102,38 +102,19 @@ report. Here are the file types and associated methods
   )
 )
 
-; for displaying layer weights (for dense layer) to three decimal places
-(define (string-trim-front str)
-  (let loop ([str (string->list str)])
-    (if (or (null? str) (not (char-whitespace? (car str))))
-      (list->string str)
-      (loop (cdr str))
-    )
-  )
-)
-(define (string-join delim lst)
-  (fold-left
-    (lambda (acc str) (string-append acc delim str))
-    (car lst) (cdr lst)
-  )
-)
+; helper; used in export-model-weights, but can be used independently to
+; introspect a dense layer
 (define (print-layer-weights layer)
   (string-join "\n"
     (map
-      (lambda (x)
-        (string-join " "
-          (map (lambda (x) (string-trim-front (format "~6,3f" x))) x)
-        )
-      )
-      (layer-weights layer)
+      (lambda (node) (string-join " " node))
+      (round-generic 3 (layer-weights layer))
     )
   )
 )
 
 ; export model weights to file; note that this makes strict assumptions on the
 ; network architecture (i.e., FC net with dense first layer)
-; TODO: rename to model-export and model-load...?
-; TODO: if no filename, then print to stdout?
 (define (export-model-weights model filename)
   ; open-output-file throws an error if file exists, so allow overwrite
   ; by deleting an existing file (be careful!)
@@ -159,21 +140,6 @@ report. Here are the file types and associated methods
     )
     ; cleanup; need this to flush output
     (close-output-port port)
-  )
-)
-
-; round everything to three decimal places and always have at least
-; one digit to the left of the decimal place;
-; takes either a list or an atom and applies itself recursively
-(define (round-generic places val)
-  (if (atom? val)
-    (if (zero? places)
-      (format "~d" val)
-      (string-trim-front
-        (format (format "~a~a,~af" #\~ (+ 3 places) places) val)
-      )
-    )
-    (map (lambda (val) (round-generic places val)) val)
   )
 )
 

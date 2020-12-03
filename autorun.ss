@@ -17,3 +17,4 @@ $ scheme -q --script autorun.ss
 
 (load "main.ss")
 (prompt-train-test-model)
+(exit)
