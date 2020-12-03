@@ -7,34 +7,43 @@ binary-model-predict-set, and model-evaluate; names are self-explanatory
 
 ; training procedure; note that this only trains on single samples
 ; (as if batch size = 1)
-; TODO: add quiet parameter
 (define (model-train model lr epochs x y)
-  (let epoch-loop ([i 1] [layers (model-layers model)])
-    (if (> i epochs)
-      (make-model layers (model-shape model))
-      [begin
-        ; TODO: if not quiet
-        ; (display (format "Epoch ~a/~a\n" i epochs))
+  (let ([N (length x)])
+    (let epoch-loop ([i 1] [layers (model-layers model)])
+      (if (> i epochs)
+        (make-model layers (model-shape model))
         (let sub-epoch-loop (
           [x x]
           [y y]
           [layers layers]
+          [loss-sum 0]
         )
           (if (null? x)
-            (epoch-loop (1+ i) layers)
+            [begin
+              (display
+                (format
+                  "Epoch ~a/~a; Average loss: ~a\n"
+                  i epochs (/ loss-sum N)
+                )
+              )
+              (epoch-loop (1+ i) layers)
+            ]
             (let* (
               [layers-train-results
                 ((layer-train (car layers)) (car x) (car y) lr (cdr layers))]
               [updated-layers (cadr layers-train-results)]
               [loss (caddr layers-train-results)]
             )
-              ; TODO: if not quiet
-              ; (display (format "Loss: ~a\n" loss))
-              (sub-epoch-loop (cdr x) (cdr y) updated-layers)
+              (sub-epoch-loop
+                (cdr x)
+                (cdr y)
+                updated-layers
+                (+ loss-sum loss)
+              )
             )
           )
         )
-      ]
+      )
     )
   )
 )
@@ -154,5 +163,3 @@ binary-model-predict-set, and model-evaluate; names are self-explanatory
     )
   )
 )
-
-; TODO: assertions?
