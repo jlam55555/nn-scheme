@@ -1,4 +1,9 @@
-; model training, inference, and evaluation procedures
+#|
+Model training, inference, and evaluation procedures
+
+model-train, model-predict, model-predict-set, model-predict-set,
+binary-model-predict-set, and model-evaluate; names are self-explanatory
+|#
 
 ; training procedure; note that this only trains on single samples
 ; (as if batch size = 1)

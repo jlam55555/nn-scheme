@@ -1,4 +1,7 @@
-; dense layer stores weights, needs to be a function
+#|
+Dense layer implementation. See report for explanation.
+|#
+
 (define (dense-layer nodes-weights)
   (define (train x y lr nn)
     (let* (

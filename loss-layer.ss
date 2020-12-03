@@ -1,5 +1,10 @@
-; "loss layer" handles loss during training and passes inputs through
-; during inference; right now loss is hardcoded as MSE
+#|
+"Loss layer" implementation. This layer handles loss during training and
+passes through its inputs (identity layer) during inference. In this
+implementation, the loss is hardcoded as MSE, but other losses can be
+implemented similarly. See report for explanation.
+|#
+
 (define (loss-layer)
   ; MSE loss is sum of (x-y).^2
   ; gradient of MSE loss (w.r.t. x) is 2*(x-y) (can drop constant factor)

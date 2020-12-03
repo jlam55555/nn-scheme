@@ -1,7 +1,21 @@
-; build fc network using network description as described
-; layer count includes input "layer"
-; extra parameter layer-count because Sable's network description assumes
-; 3 layers, but this can be more general
+#|
+Procedures to read and write to the file formats as described in the
+report. Here are the file types and associated methods
+
+1. Dataset files (either train or test)
+- load-dataset -> reads dataset files into dataset instance
+
+2. Weights files
+- load-model -> reads model weights into model instance
+- export-model-weights -> outputs model weights file
+
+3. Statistics files
+- export-model-stats -> outputs statistics file
+|#
+
+; build fc network using network description as described; layer count includes
+; input "layer"; extra parameter layer-count is always 3 for the sake of this
+; assignment (one hidden layer), but can be generalized to more layers
 (define (load-model filename layer-count)
   (let* (
     [port (open-input-file filename)]
@@ -29,7 +43,10 @@
               (cons (sigmoid-layer) (cons (dense-layer (reverse nodes)) layers))
               (1+ i)
             )
-            (let weight-loop ([weights '()] [k (1+ (list-ref layer-node-counts i))])
+            (let weight-loop (
+              [weights '()]
+              [k (1+ (list-ref layer-node-counts i))]
+            )
               (if (zero? k)
                 (node-loop (cons (reverse weights) nodes) (1- j))
                 (weight-loop (cons (read port) weights) (1- k))
@@ -43,7 +60,6 @@
 )
 
 ; load in dataset
-; TODO: add notes on dataset format
 (define (load-dataset filename)
   (let* (
     [port (open-input-file filename)]

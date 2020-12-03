@@ -1,3 +1,11 @@
+#|
+Main entry point: loads dependencies and defines procedures to automate
+the train/test procedures by prompting for the necessary inputs.
+
+An alternative entry point is autorun.ss, which simply loads this file and
+calls (prompt-train-test-model) (and thus can be run from the command line).
+|#
+
 (load "arch-defs.ss")
 (load "model.ss")
 (load "sigmoid-layer.ss")
@@ -5,22 +13,7 @@
 (load "loss-layer.ss")
 (load "model-io.ss")
 
-; run example
-; samples to choose from: wdbc, grades
-; TODO: remove this or move to another file
-#|
-(define dataset-name "grades")
-(define model (load-model (format "weights/~a.init" dataset-name) 3))
-(define dataset (load-dataset (format "data/~a.train" dataset-name)))
-(define x (car dataset))
-(define y (cdr dataset))
-(define trained-model (model-train model 0.05 100 x y))
-(define test-dataset (load-dataset (format "data/~a.test" dataset-name)))
-(define x (car test-dataset))
-(define y (cdr test-dataset))
-|#
-
-; parse input as type
+; helper function parse input as given type
 (define (read-as-type port type)
   (let ([input-symbol (read port)])
     (case type

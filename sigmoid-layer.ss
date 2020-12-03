@@ -1,5 +1,7 @@
-; technically this doesn't have to be a function, since there are no weights/state;
-; use function just to be consistent with other layer types (e.g., dense), which do store state
+#|
+Sigmoid layer implementation. See report for explanation.
+|#
+
 (define (sigmoid-layer)
   (define (sigmoid x) (/ 1 (1+ (exp (- x)))))
   (define (sigmoid-prime x)
