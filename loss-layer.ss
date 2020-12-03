@@ -8,14 +8,9 @@ implemented similarly. See report for explanation.
 (define (loss-layer)
   ; MSE loss is sum of (x-y).^2
   ; gradient of MSE loss (w.r.t. x) is 2*(x-y) (can drop constant factor)
-  (define (train x y lr _)
-    (let* (
-      [grads (map - x y)]
-      [loss (apply + (map (lambda (x y) (expt (- x y) 2)) x y))]
-    )
-      (list grads (list (loss-layer)) loss)
-    )
-  )
-  (define (infer x) x)
-  (make-layer train infer '())
-)
+  (let ([infer (lambda (x) x)]
+        [train (lambda (x y lr _)
+          (let* ([grads (map - x y)]
+                 [loss (apply + (map (lambda (x y) (expt (- x y) 2)) x y))])
+            (list grads (list (loss-layer)) loss)))])
+    (make-layer train infer '())))

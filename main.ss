@@ -16,56 +16,46 @@ calls (prompt-train-test-model) (and thus can be run from the command line).
 
 ; prompt-driven model training, returns trained model
 (define (prompt-train-model)
-  (let* (
-    [port (current-input-port)]
-    [model-weights-file [begin
-      (display "Model weights file: ")
-      (read-as-type port 'string)
-    ]]
-    [dataset-file [begin
-      (display "Train dataset file: ")
-      (read-as-type port 'string)
-    ]]
-    [lr [begin
-      (display "Learning rate: ")
-      (read-as-type port 'number)
-    ]]
-    [epochs [begin
-      (display "Epochs: ")
-      (read-as-type port 'number)
-    ]]
-    [out-weights-file [begin
-      (display "Output model weights to: ")
-      (read-as-type port 'string)
-    ]]
-    [model (load-model model-weights-file 3)]
-    [dataset (load-dataset dataset-file)]
-    [trained-model (model-train model lr epochs (car dataset) (cdr dataset))]
-  )
+  (let* ([port (current-input-port)]
+         [model-weights-file [begin
+          (display "Model weights file: ")
+          (read-as-type port 'string)]]
+         [dataset-file [begin
+          (display "Train dataset file: ")
+          (read-as-type port 'string)
+         ]]
+         [lr [begin
+          (display "Learning rate: ")
+          (read-as-type port 'number)
+         ]]
+         [epochs [begin
+          (display "Epochs: ")
+          (read-as-type port 'number)
+         ]]
+         [out-weights-file [begin
+          (display "Output model weights to: ")
+          (read-as-type port 'string)
+         ]]
+         [model (load-model model-weights-file 3)]
+         [dataset (load-dataset dataset-file)]
+         [trained-model
+          (model-train model lr epochs (car dataset) (cdr dataset))])
     (export-model-weights trained-model out-weights-file)
-    trained-model
-  )
-)
+    trained-model))
 
 ; prompt-driven model stats (given some trained model)
 (define (prompt-test-model model)
-  (let* (
-    [port (current-input-port)]
-    [dataset-file [begin
-      (display "Test dataset file: ")
-      (read-as-type port 'string)
-    ]]
-    [out-stats-file [begin
-      (display "Output model stats to: ")
-      (read-as-type port 'string)
-    ]]
-    [dataset (load-dataset dataset-file)]
-  )
-    (export-model-stats model (car dataset) (cdr dataset) out-stats-file)
-  )
-)
+  (let* ([port (current-input-port)]
+         [dataset-file [begin
+          (display "Test dataset file: ")
+          (read-as-type port 'string)
+         ]]
+         [out-stats-file [begin
+          (display "Output model stats to: ")
+          (read-as-type port 'string)
+         ]]
+         [dataset (load-dataset dataset-file)])
+    (export-model-stats model (car dataset) (cdr dataset) out-stats-file)))
 
 ; a combination of the two above functions, for ultimate convenience
-(define (prompt-train-test-model)
-  (prompt-test-model (prompt-train-model))
-)
+(define (prompt-train-test-model) (prompt-test-model (prompt-train-model)))
