@@ -32,11 +32,8 @@ Dense layer implementation. See report for explanation.
                    [grads
                     (map
                       (lambda (input-node-weights)
-                        (apply + (map * input-node-weights next-layer-grads))
-                      )
-                      (cdr (apply map list nodes-weights))
-                    )
-                   ])
+                        (apply + (map * input-node-weights next-layer-grads)))
+                      (cdr (apply map list nodes-weights)))])
               (list
                 grads
                 (cons (dense-layer updated-weights) next-layers)
